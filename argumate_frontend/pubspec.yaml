@@ -1,0 +1,62 @@
+name: argumate_frontend
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase Core - Updated to latest stable versions
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+
+  # HTTP Client
+  http: ^1.2.0
+  http_parser: ^4.1.2 
+
+  # State Management
+  provider: ^6.0.5
+
+  # Logging
+  logger: ^2.0.2
+
+  # File Picker
+  file_picker: ^10.2.1
+
+  intl: ^0.18.1
+
+  google_sign_in: ^6.2.1
+
+  # Icons & UI
+  cupertino_icons: ^1.0.8
+  shimmer: ^3.0.0
+  rxdart: ^0.28.0
+
+  # Google Fonts (added for Megrim font)
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/lawgorythm_logo.png
+    - assets/google_logo.png
+    - assets/user_logo.png
+    - assets/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon2.png"
+  min_sdk_android: 21

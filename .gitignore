@@ -1,0 +1,9 @@
+# Root ignore rules
+argumate_backend/.env
+argumate_backend/serviceAccountKey.json
+argumate_frontend/android/app/google-services.json
+argumate_frontend/lib/firebase_options.dart
+**/venv/
+**/__pycache__/
+**/build/
+.vscode/
