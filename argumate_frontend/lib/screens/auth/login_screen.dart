@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           foreground: Paint()
                             ..shader = const LinearGradient(
                               colors: [Colors.purple, Colors.cyan, Colors.blue]
-                            ).createShader(const Rect.fromLTWH(0.0, 0.0, 1500.0, 70.0)),
+                            ).createShader(const Rect.fromLTWH(0.0, 0.0, 2000.0, 70.0)),
                           shadows: [ Shadow( offset: Offset(0, 0), blurRadius: 10, color: Colors.black), ],
                         ),
                       ),
@@ -122,8 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 
                 const Text(
-                  "Your AI Legal Companion",
-                  style: TextStyle(color: Colors.white70, fontSize: 16, letterSpacing: 0.5),
+                  "Where Law meets Algorithms",
+                  style: TextStyle(color: Colors.white24, fontSize: 18, letterSpacing: 0.5),
                 ),
                 
                 const SizedBox(height: 30),

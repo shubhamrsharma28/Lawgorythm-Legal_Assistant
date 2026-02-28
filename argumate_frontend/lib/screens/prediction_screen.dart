@@ -1,168 +1,76 @@
-// lib/screens/prediction_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:logger/logger.dart';
-
 import '../services/prediction_service.dart';
 import '../models/prediction_model.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PredictionScreen extends StatefulWidget {
   const PredictionScreen({super.key});
-
   @override
   State<PredictionScreen> createState() => _PredictionScreenState();
 }
 
 class _PredictionScreenState extends State<PredictionScreen> {
   final TextEditingController _summaryController = TextEditingController();
-  final Logger _logger = Logger();
   bool _isLoading = false;
-  PredictionResponse? _predictionResponse;
-
-  Future<void> _predictOutcome() async {
-    final caseSummary = _summaryController.text.trim();
-    if (caseSummary.length < 50) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide a case summary of at least 50 characters.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _predictionResponse = null;
-    });
-
-    try {
-      final service = Provider.of<PredictionService>(context, listen: false);
-      final response = await service.predictOutcome(caseSummary);
-      if (mounted) {
-        setState(() {
-          _predictionResponse = response;
-        });
-      }
-    } catch (e) {
-      _logger.e('Prediction Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _summaryController.dispose();
-    super.dispose();
-  }
+  PredictionResponse? _prediction;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Judgment Prediction'),
-        backgroundColor: Colors.redAccent,
+  backgroundColor: const Color(0xFF0A0E21),
+  appBar: AppBar(
+    title: Text(
+      'Judgment Prediction',
+      style: GoogleFonts.audiowide(
+        textStyle: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 1.2),
       ),
+    ),
+    backgroundColor: const Color(0xFF1A237E),
+    iconTheme: const IconThemeData(color: Colors.white),
+  ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter the facts of a case to get an AI-powered prediction of the likely judgment outcome.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
             TextField(
               controller: _summaryController,
-              decoration: const InputDecoration(
-                labelText: 'Case Summary / Facts',
-                hintText: 'e.g., "The prosecution presented two eyewitnesses who identified the accused..."',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 10,
-              minLines: 6,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Case Summary', labelStyle: TextStyle(color: Colors.white70), enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24))),
+              maxLines: 6,
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : _predictOutcome,
-              icon: const Icon(Icons.online_prediction, color: Colors.white),
-              label: Text(
-                _isLoading ? 'Predicting...' : 'Predict Outcome',
-                style: const TextStyle(fontSize: 18, color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              ),
-            ),
-            const SizedBox(height: 30),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
-            if (_predictionResponse != null)
-              _buildResultCard(_predictionResponse!),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _isLoading ? null : _predict, child: const Text('Predict Outcome')),
+            if (_prediction != null) ...[
+              const SizedBox(height: 30),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
+                child: Column(children: [
+                  const Text('PREDICTED OUTCOME', style: TextStyle(color: Colors.white54, letterSpacing: 1.5)),
+                  const SizedBox(height: 10),
+                  Text(_prediction!.predictedOutcome.toUpperCase(), style: const TextStyle(color: Colors.redAccent, fontSize: 28, fontWeight: FontWeight.bold)),
+                  const Divider(color: Colors.white10, height: 40),
+                  _row('Confidence Score', '${_prediction!.confidenceScore}%'),
+                  const SizedBox(height: 20),
+                  const Align(alignment: Alignment.centerLeft, child: Text('AI REASONING:', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))),
+                  const SizedBox(height: 8),
+                  Text(_prediction!.reasoning, style: const TextStyle(color: Colors.white70, height: 1.5)),
+                ]),
+              )
+            ]
           ],
         ),
       ),
     );
   }
 
-  Widget _buildResultCard(PredictionResponse response) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Prediction Report',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const Divider(height: 20),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Predicted Outcome:',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    response.predictedOutcome,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Confidence: ${response.confidenceScore}%',
-                     style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                   const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: response.confidenceScore / 100,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey[300],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Reasoning:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
-            Text(response.reasoning),
-          ],
-        ),
-      ),
-    );
+  Widget _row(String l, String v) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.white70)), Text(v, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]);
+
+  Future<void> _predict() async {
+    setState(() => _isLoading = true);
+    final res = await Provider.of<PredictionService>(context, listen: false).predictOutcome(_summaryController.text);
+    setState(() { _prediction = res; _isLoading = false; });
   }
 }

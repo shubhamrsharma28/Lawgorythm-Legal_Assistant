@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
             title: 'Lawgorythm',
             debugShowCheckedModeBanner: false,
             theme: ThemeData(brightness: Brightness.dark, primaryColor: const Color(0xFF1A237E)),
-            // FIX: Login ke baad seedha DashboardScreen par bhejo
+            
             home: const AuthWrapper(),
             routes: {
               '/dashboard': (context) => const DashboardScreen(),

@@ -1,11 +1,8 @@
-# app/routers/judgment_predictor.py
-
 import logging
 import json
 import requests
 from fastapi import APIRouter, Depends, HTTPException
 
-# Import models and security dependencies
 from app.models.schemas import PredictionInput, PredictionResponse
 from app.core.security import authenticate_user
 from app.core.config import GEMINI_API_KEY
@@ -23,7 +20,7 @@ async def predict_judgment_outcome(
     current_user: dict = Depends(authenticate_user)
 ):
     """
-    Accepts a case summary and uses an AI model to predict the likely outcome.
+    Accepts a case summary and uses OpenRouter (Gemini Model) to predict the likely outcome.
     """
     user_uid = current_user.get("uid")
     logger.info(f"Received judgment prediction request from user: {user_uid}")
@@ -35,37 +32,46 @@ async def predict_judgment_outcome(
         if not api_key:
             raise HTTPException(status_code=500, detail="AI Service is not configured.")
 
-        # Define the expected JSON schema for the AI's response
-        response_schema = {
-            "type": "OBJECT",
-            "properties": {
-                "predicted_outcome": {"type": "STRING"},
-                "confidence_score": {"type": "INTEGER"},
-                "reasoning": {"type": "STRING"}
-            },
-            "required": ["predicted_outcome", "confidence_score", "reasoning"]
+        api_url = "https://openrouter.ai/api/v1/chat/completions"
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
         }
 
         payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": response_schema
-            }
+            "model": "google/gemini-2.0-flash-001", 
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "You are ArguMate, an expert legal analyst. You must respond ONLY with a valid JSON object."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ],
+            "response_format": { "type": "json_object" } 
         }
         
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
-        
-        response = requests.post(api_url, headers={'Content-Type': 'application/json'}, json=payload)
+        response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
 
-        json_response_str = result["candidates"][0]["content"]["parts"][0]["text"]
+        json_response_str = result["choices"][0]["message"]["content"]
+        
+        if "```json" in json_response_str:
+            json_response_str = json_response_str.split("```json")[1].split("```")[0].strip()
+        elif "```" in json_response_str:
+             json_response_str = json_response_str.split("```")[1].split("```")[0].strip()
+
         ai_response_data = json.loads(json_response_str)
 
         return PredictionResponse(
             message="Judgment prediction generated successfully.",
-            **ai_response_data
+            predicted_outcome=ai_response_data.get("predicted_outcome", "Unknown"),
+            confidence_score=ai_response_data.get("confidence_score", 0),
+            reasoning=ai_response_data.get("reasoning", "No reasoning provided.")
         )
 
     except Exception as e:
@@ -76,17 +82,15 @@ async def predict_judgment_outcome(
 def create_prediction_prompt(case_summary: str) -> str:
     """Creates a standardized prompt for the judgment prediction task."""
     return f"""
-    You are ArguMate, an AI legal analyst that simulates a machine learning model trained on thousands of Indian court cases.
+    You are ArguMate, an AI legal analyst that simulates a machine learning model trained on Indian court cases.
     Your task is to predict the likely outcome of a case based on its summary.
-    The response MUST be a single, valid JSON object.
+    
+    The response MUST be a single, valid JSON object with the following keys:
+    1. "predicted_outcome": String. Use "Conviction" (Doshi), "Acquittal" (Nirdosh), or "Settlement" (Samjhauta).
+    2. "confidence_score": Integer (0-100).
+    3. "reasoning": String. A brief explanation citing facts.
 
-    The JSON object must have three keys: "predicted_outcome", "confidence_score", and "reasoning".
-
-    1. "predicted_outcome": The most likely judgment. Must be one of "Conviction" (Doshi), "Acquittal" (Nirdosh), or "Settlement" (Samjhauta).
-    2. "confidence_score": An integer from 0 to 100 representing your confidence in this prediction.
-    3. "reasoning": A brief, data-driven explanation for your prediction, citing key facts from the summary.
-
-    Analyze the following case summary and predict the outcome:
+    Analyze this case summary:
     ---
     {case_summary}
     ---

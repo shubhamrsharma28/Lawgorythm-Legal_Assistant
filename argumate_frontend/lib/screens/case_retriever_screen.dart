@@ -1,178 +1,81 @@
-// lib/screens/case_retriever_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:logger/logger.dart';
-
 import '../services/case_retriever_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/case_retriever_model.dart';
 
 class CaseRetrieverScreen extends StatefulWidget {
   const CaseRetrieverScreen({super.key});
-
   @override
   State<CaseRetrieverScreen> createState() => _CaseRetrieverScreenState();
 }
 
 class _CaseRetrieverScreenState extends State<CaseRetrieverScreen> {
   final TextEditingController _summaryController = TextEditingController();
-  final Logger _logger = Logger();
   bool _isLoading = false;
   CaseRetrieverResponse? _caseResponse;
-
-  Future<void> _findCases() async {
-    final caseSummary = _summaryController.text.trim();
-    if (caseSummary.length < 50) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide a case summary of at least 50 characters.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _caseResponse = null;
-    });
-
-    try {
-      final service = Provider.of<CaseRetrieverService>(context, listen: false);
-      final response = await service.findSimilarCases(caseSummary);
-      if (mounted) {
-        setState(() {
-          _caseResponse = response;
-        });
-      }
-    } catch (e) {
-      _logger.e('Case Retriever Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _summaryController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Case Law Retriever'),
-        backgroundColor: Colors.brown,
+  backgroundColor: const Color(0xFF0A0E21),
+  appBar: AppBar(
+    title: Text(
+      'Case Law Retriever',
+      style: GoogleFonts.audiowide(
+        textStyle: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 1.2),
       ),
+    ),
+    backgroundColor: const Color(0xFF1A237E),
+    iconTheme: const IconThemeData(color: Colors.white),
+  ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter the facts of a case to find similar, real-life case laws with citations from India.',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
             TextField(
               controller: _summaryController,
+              style: const TextStyle(color: Colors.white),
               decoration: const InputDecoration(
-                labelText: 'Case Summary / Facts',
-                hintText: 'e.g., "A verbal dispute over property led to a physical altercation..."',
-                border: OutlineInputBorder(),
+                labelText: 'Case Facts',
+                labelStyle: TextStyle(color: Colors.white70),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
               ),
-              maxLines: 10,
-              minLines: 6,
+              maxLines: 5,
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
+            const SizedBox(height: 16),
+            ElevatedButton(
               onPressed: _isLoading ? null : _findCases,
-              icon: const Icon(Icons.search, color: Colors.white),
-              label: Text(
-                _isLoading ? 'Searching...' : 'Find Similar Cases',
-                style: const TextStyle(fontSize: 18, color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.brown,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              child: const Text('Search Citations', style: TextStyle(color: Colors.white)),
             ),
-            const SizedBox(height: 30),
-            if (_isLoading) const Center(child: CircularProgressIndicator()),
-            if (_caseResponse != null)
-              _buildResults(_caseResponse!),
+            const SizedBox(height: 24),
+            if (_caseResponse != null) ..._caseResponse!.similarCases.map((c) => _buildCard(c)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildResults(CaseRetrieverResponse response) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Found ${response.similarCases.length} Relevant Cases',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        ...response.similarCases.map((caseItem) => _buildCaseCard(caseItem)),
-      ],
+  Widget _buildCard(SimilarCase c) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(c.caseName, style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(c.citation, style: const TextStyle(color: Colors.white54, fontStyle: FontStyle.italic)),
+        const Divider(color: Colors.white10, height: 20),
+        Text('Summary: ${c.summary}', style: const TextStyle(color: Colors.white70)),
+        const SizedBox(height: 8),
+        Text('Relevance: ${c.relevance}', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w500)),
+      ]),
     );
   }
 
-  Widget _buildCaseCard(SimilarCase caseItem) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              caseItem.caseName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              caseItem.citation,
-              style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
-            ),
-            const Divider(height: 20),
-            _buildDetailRow(Icons.summarize, 'Summary', caseItem.summary),
-            const SizedBox(height: 12),
-            _buildDetailRow(Icons.link, 'Relevance', caseItem.relevance),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String title, String content) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: Colors.brown),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(content),
-            ],
-          ),
-        ),
-      ],
-    );
+  Future<void> _findCases() async {
+    setState(() => _isLoading = true);
+    final res = await Provider.of<CaseRetrieverService>(context, listen: false).findSimilarCases(_summaryController.text);
+    setState(() { _caseResponse = res; _isLoading = false; });
   }
 }

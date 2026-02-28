@@ -51,8 +51,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Feature(title: 'Prediction', icon: Icons.online_prediction_rounded, color: Colors.redAccent, routeName: '/prediction'),
       Feature(title: 'Case Timeline', icon: Icons.timeline_rounded, color: Colors.cyanAccent, routeName: '/case_timeline'),
       Feature(title: 'Case Retriever', icon: Icons.find_in_page_rounded, color: Colors.orangeAccent, routeName: '/case_retriever'),
-      Feature(title: 'Arguments', icon: Icons.gavel_rounded, color: Colors.tealAccent, routeName: '/argument_builder'),
-      Feature(title: 'Validator', icon: Icons.verified_user_rounded, color: Colors.purpleAccent, routeName: '/fir_validator'),
+      Feature(title: 'Arguments Builder', icon: Icons.gavel_rounded, color: Colors.tealAccent, routeName: '/argument_builder'),
+      Feature(title: 'FIR Validator', icon: Icons.verified_user_rounded, color: Colors.purpleAccent, routeName: '/fir_validator'),
       Feature(title: 'FIR Explainer', icon: Icons.description_rounded, color: Colors.greenAccent, routeName: '/fir_explainer'),
     ];
 

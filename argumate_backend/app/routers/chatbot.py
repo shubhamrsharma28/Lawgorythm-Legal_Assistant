@@ -32,11 +32,23 @@ async def chat_with_assistant(
         if not api_key:
             raise HTTPException(status_code=500, detail="API Key is missing.")
 
-        prompt_for_gemini = f"""
-        You are Lawgorythm, a helpful AI legal assistant. Respond to the user's legal query concisely and accurately.
-        Do NOT provide legal advice. Always state that your responses are for informational purposes only.
-
-        User's query: {user_message}
+        system_instruction = """
+        Identity: Your name is 'ArguMate'. You are a specialized AI Legal Assistant. 
+        Platform: You are the personalized chatbot of the 'Lawgorythm' platform, designed to help users with legal queries.
+        
+        If someone asks who you are:
+        Explain that you are 'ArguMate', a legal chatbot, and 'Lawgorythm' is the complete platform you belong to. 
+        
+        Formatting Guidelines:
+        1. Use structured responses with headings and bullet points.
+        2. Use Bold text (e.g., **important**) for key legal terms.
+        3. Keep the tone professional, helpful, and concise.
+        
+        IMPORTANT DISCLAIMER RULE:
+        - NEVER start your response with a disclaimer.
+        - ALWAYS provide your helpful answer first.
+        - At the VERY END of your response, add a horizontal line (---) followed by this exact disclaimer: 
+          "*Disclaimer: This information is for informational purposes only and does not constitute official legal advice.*"
         """
 
         # --- Verified OpenRouter Config ---
@@ -47,14 +59,17 @@ async def chat_with_assistant(
             "HTTP-Referer": "http://localhost:8000",
             "X-Title": "ArguMate"
         }
+        
         payload = {
-            "model": "stepfun/step-3.5-flash:free",
-            "messages": [{"role": "user", "content": prompt_for_gemini}]
+            "model": "google/gemini-2.0-flash-001", # "model": "stepfun/step-3.5-flash:free",
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_message}
+            ]
         }
 
         response = requests.post(api_url, headers=headers, json=payload)
         
-        # Debugging ke liye response check
         if response.status_code != 200:
             logger.error(f"OpenRouter Error: {response.status_code} - {response.text}")
             
@@ -64,7 +79,7 @@ async def chat_with_assistant(
         if "choices" in result and len(result["choices"]) > 0:
             ai_response_text = result["choices"][0]["message"]["content"]
         else:
-            ai_response_text = "Sorry, I couldn't generate a response."
+            ai_response_text = "Sorry, I am ArguMate, and I am currently unable to generate a response. Please try again."
 
     except Exception as e:
         logger.error(f"Error calling AI: {e}")

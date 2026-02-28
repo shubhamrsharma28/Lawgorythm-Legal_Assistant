@@ -1,9 +1,8 @@
-// lib/screens/chatbot_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
-import 'dart:ui'; // For BackdropFilter (Glass effect)
-
+import 'dart:ui';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/chat_service.dart';
 import '../models/chat_message_model.dart';
 
@@ -25,7 +24,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void initState() {
     super.initState();
     _messages.add(ChatMessage(
-      text: 'Hi! I am ArguMate, your AI legal assistant. How can I help you today?',
+      text: 'Hi! I am **ArguMate**, your AI legal assistant. How can I help you today?',
       sender: MessageSender.ai,
     ));
   }
@@ -43,11 +42,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _isSending) return;
 
-    final userMessage = _messageController.text.trim();
     setState(() {
-      _messages.add(ChatMessage(text: userMessage, sender: MessageSender.user));
+      _messages.add(ChatMessage(text: text, sender: MessageSender.user));
       _messageController.clear();
       _isSending = true;
     });
@@ -55,7 +54,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
     try {
       final chatService = Provider.of<ChatService>(context, listen: false);
-      final aiResponse = await chatService.sendChatMessage(message: userMessage);
+      final aiResponse = await chatService.sendChatMessage(message: text);
 
       if (!mounted) return;
       setState(() {
@@ -64,50 +63,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _scrollToBottom();
     } catch (e) {
       _logger.e('Chatbot Error: $e');
-      if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(
-          text: 'Sorry, I am unable to connect to the legal assistant at the moment.',
-          sender: MessageSender.ai,
-        ));
-      });
+      if (mounted) {
+        setState(() {
+          _messages.add(ChatMessage(
+            text: '_Sorry, I am unable to connect to ArguMate right now._',
+            sender: MessageSender.ai,
+          ));
+        });
+      }
       _scrollToBottom();
     } finally {
-      if (mounted) {
-        setState(() => _isSending = false);
-      }
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Dark Base
+      backgroundColor: Colors.black,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF1A237E), // Deep Blue to match Logo
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.white.withOpacity(0.1),
-              child: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ArguMate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                Row(
-                  children: [
-                    CircleAvatar(radius: 4, backgroundColor: Colors.greenAccent),
-                    SizedBox(width: 4),
-                    Text('Online', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
+        backgroundColor: const Color(0xFF1A237E),
+        title: const Text('ArguMate', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -117,80 +94,60 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             colors: [Color(0xFF1A237E), Colors.black],
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Message List
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message = _messages[index];
-                    return ChatBubble(message: message);
-                  },
-                ),
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) => ChatBubble(message: _messages[index]),
               ),
-
-              // Bottom Input Area
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(25),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: TextField(
-                              controller: _messageController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                hintText: 'Ask ArguMate anything...',
-                                hintStyle: TextStyle(color: Colors.white38),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                              ),
-                              enabled: !_isSending,
-                              onSubmitted: _isSending ? null : (_) => _sendMessage(),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _isSending
-                        ? const SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: CircularProgressIndicator(color: Colors.blueAccent, strokeWidth: 2),
-                            ),
-                          )
-                        : Container(
-                            decoration: const BoxDecoration(
-                              color: Colors.blueAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.send_rounded, color: Colors.white),
-                              onPressed: _sendMessage,
-                            ),
-                          ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+            _buildInputArea(),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: TextField(
+                controller: _messageController,
+                style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.send, // Keyboard pe Send icon dikhayega
+                onSubmitted: (_) => _sendMessage(), // Enter dabate hi send hoga
+                decoration: const InputDecoration(
+                  hintText: 'Ask ArguMate...',
+                  hintStyle: TextStyle(color: Colors.white38),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          CircleAvatar(
+            backgroundColor: Colors.blueAccent,
+            child: IconButton(
+              icon: _isSending 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.send, color: Colors.white),
+              onPressed: _sendMessage,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -198,52 +155,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
 class ChatBubble extends StatelessWidget {
   final ChatMessage message;
-
   const ChatBubble({super.key, required this.message});
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.sender == MessageSender.user;
-    
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
         decoration: BoxDecoration(
-          // WhatsApp Style Glass Bubbles
-          color: isUser 
-              ? Colors.blueAccent.withOpacity(0.2) // User: Cyan-Blue Tint
-              : Colors.white.withOpacity(0.1),      // AI: Dark Grey Tint
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: isUser ? const Radius.circular(20) : Radius.zero,
-            bottomRight: isUser ? Radius.zero : const Radius.circular(20),
-          ),
-          border: Border.all(
-            color: isUser ? Colors.blueAccent.withOpacity(0.3) : Colors.white10,
-          ),
+          color: isUser ? Colors.blueAccent.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: isUser ? Colors.blueAccent.withOpacity(0.3) : Colors.white10),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Bot Name label (Optional, only for AI)
-            if (!isUser) 
-              const Padding(
-                padding: EdgeInsets.only(bottom: 4),
-                child: Text('ArguMate', style: TextStyle(color: Colors.blueAccent, fontSize: 10, fontWeight: FontWeight.bold)),
-              ),
-            Text(
-              message.text,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.white,
-                height: 1.4,
-              ),
-            ),
-          ],
+        child: MarkdownBody(
+          data: message.text,
+          styleSheet: MarkdownStyleSheet(
+            p: const TextStyle(color: Colors.white, fontSize: 15),
+            strong: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+            em: const TextStyle(color: Colors.white54, fontSize: 12, fontStyle: FontStyle.italic), // For Disclaimer
+          ),
         ),
       ),
     );

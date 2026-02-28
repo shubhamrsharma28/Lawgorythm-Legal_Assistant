@@ -23,7 +23,7 @@ async def find_similar_cases(
     current_user: dict = Depends(authenticate_user)
 ):
     """
-    Accepts a case summary and finds similar, real-life case laws with citations.
+    Accepts a case summary and finds similar, real-life case laws using OpenRouter.
     """
     user_uid = current_user.get("uid")
     logger.info(f"Received similar case request from user: {user_uid}")
@@ -33,73 +33,61 @@ async def find_similar_cases(
     try:
         api_key = GEMINI_API_KEY
         if not api_key:
-            raise HTTPException(status_code=500, detail="AI Service is not configured.")
+            raise HTTPException(status_code=500, detail="AI Service Key is not configured.")
 
-        # Define the expected JSON schema for the AI's response
-        response_schema = {
-            "type": "OBJECT",
-            "properties": {
-                "similar_cases": {
-                    "type": "ARRAY",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "citation": {"type": "STRING"},
-                            "case_name": {"type": "STRING"},
-                            "summary": {"type": "STRING"},
-                            "relevance": {"type": "STRING"}
-                        },
-                        "required": ["citation", "case_name", "summary", "relevance"]
-                    }
-                }
-            },
-            "required": ["similar_cases"]
+        # --- FIX: CLEAN URL WITHOUT MARKDOWN BRACKETS ---
+        api_url = "https://openrouter.ai/api/v1/chat/completions"
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}", 
+            "Content-Type": "application/json"
         }
 
         payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": response_schema
-            }
+            "model": "google/gemini-2.0-flash-001",
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": "You are ArguMate, an expert legal researcher. You MUST respond ONLY with a valid JSON object."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ],
+            "response_format": { "type": "json_object" }
         }
         
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
-        
-        response = requests.post(api_url, headers={'Content-Type': 'application/json'}, json=payload)
+        response = requests.post(api_url, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
 
-        json_response_str = result["candidates"][0]["content"]["parts"][0]["text"]
+        # Extract content safely
+        json_response_str = result["choices"][0]["message"]["content"]
+        
+        # Robust Cleaning for JSON
+        if "```json" in json_response_str:
+            json_response_str = json_response_str.split("```json")[1].split("```")[0].strip()
+        elif "```" in json_response_str:
+            json_response_str = json_response_str.split("```")[1].split("```")[0].strip()
+        
         ai_response_data = json.loads(json_response_str)
 
+        # Ensure the keys match what the Frontend (Pydantic model) expects
         return CaseRetrieverResponse(
             message="Similar cases retrieved successfully.",
-            **ai_response_data
+            similar_cases=ai_response_data.get("similar_cases", [])
         )
 
     except Exception as e:
-        logger.error(f"An unexpected error occurred during case retrieval for user {user_uid}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
-
+        logger.error(f"Error in case retrieval for user {user_uid}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
 
 def create_retrieval_prompt(case_summary: str) -> str:
     """Creates a standardized prompt for the case law retrieval task."""
-    return f"""
-    You are ArguMate, an expert AI legal researcher specializing in Indian law.
-    Your task is to analyze the facts of a case summary and find 3 to 5 similar, real case laws from India.
-    The response MUST be a single, valid JSON object.
-
-    The JSON object must have one key: "similar_cases".
-
-    "similar_cases" should be a list of JSON objects. Each object must have four keys:
-    - "citation": The official legal citation of the case (e.g., "AIR 1983 SC 465").
-    - "case_name": The name of the case (e.g., "State of Punjab vs. Gurmit Singh").
-    - "summary": A brief, one-paragraph summary of the case's judgment.
-    - "relevance": A short explanation of why this case is relevant to the user's summary.
-
-    Analyze the following case summary:
-    ---
-    {case_summary}
-    ---
-    """
+    return (
+        f"You are ArguMate, an expert AI legal researcher specializing in Indian law. "
+        f"Find 3 to 5 real, landmark Indian case laws that are similar to this case: {case_summary}. "
+        f"Return ONLY a JSON object with a 'similar_cases' key. Each case in the list must have: "
+        f"'citation', 'case_name', 'summary', and 'relevance'."
+    )
